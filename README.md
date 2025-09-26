@@ -24,15 +24,15 @@ import requests
 
 def main():
     try:
-        response = requests.get("https://raw.githubusercontent.com/RedeCanary/redecanary-requests/refs/heads/main/enchants.json")
+        response = requests.get("https://raw.githubusercontent.com/RedeCanary/Canary-Requests/refs/heads/main/skyblock/enchants.json")
         response.raise_for_status()
         data = response.json()
         
         for enchant in data:
             print("ID: {}\nNome: {}\nConflitos: {}".format(
-                data[enchant]["CRITICAL"]["id"], 
-                data[enchant]["CRITICAL"]["translated"], 
-                data[enchant]["CRITICAL"]["extra"]["conflicts"]
+                data[enchant]["id"], 
+                data[enchant]["name"], 
+                data[enchant]["extra"]["conflicts"]
             ))
 
     except Exception as e:
@@ -48,47 +48,58 @@ if __name__ == "__main__":
     - Framework Lombok
     - Java 8 ou superior
 ```java
+public class Main {
+
     public static void main(String[] args) {
         try {
-            final String URL_LINK = "https://raw.githubusercontent.com/RedeCanary/redecanary-requests/refs/heads/main/enchants.json";
-            final URL url = new URL(URL_LINK);
-            final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
+            final String URL_LINK = "https://raw.githubusercontent.com/RedeCanary/Canary-Requests/refs/heads/main/skyblock/enchants.json";
 
-            final String content = getContent(URL_LINK);
-            connection.disconnect();
+            String content = getContent(URL_LINK);
 
-            final Gson gson = new Gson();
-            final EnchantmentsMap enchantmentMap = gson.fromJson(content, EnchantmentsMap.class);
-            final EnchantmentsMap.Enchant enchant = enchantmentMap.getEnchantments().get("CRITICAL");
+            Gson gson = new Gson();
+            Map<String, Object> rawData = gson.fromJson(content, Map.class);
 
-            System.out.println("Nome: " + enchant.getTranslatedName());
-            System.out.println("Referência: " + enchant.getReference());
-            System.out.println("Id: " + enchant.getId());
+            for (String enchantKey : rawData.keySet()) {
+                Map<String, Object> enchantData = (Map<String, Object>) rawData.get(enchantKey);
 
-        } catch (IOException ignored) {}
+                Double id = (Double) enchantData.get("id");
+                String name = (String) enchantData.get("name");
+
+                Map<String, Object> extra = (Map<String, Object>) enchantData.get("extra");
+                List<String> conflicts = (List<String>) extra.get("conflicts");
+
+                System.out.println("ID: " + id.intValue());
+                System.out.println("Nome: " + name);
+                System.out.println("Conflitos: " + conflicts);
+                System.out.println("-----------------------------------");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Ocorreu um erro: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
-@Getter
-@AllArgsConstructor
-public class EnchantmentsMap {
+    private static String getContent(String urlLink) throws IOException {
+        URL url = new URL(urlLink);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
 
-        @SerializedName("enchantments")
-        protected Map<String, Enchant> enchantments;
+        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        String inputLine;
+        StringBuilder content = new StringBuilder();
 
-        @Getter
-        @AllArgsConstructor
-        public static class Enchant {
-                @SerializedName("id")
-                protected int id;
-
-                @SerializedName("reference")
-                protected String reference;
-
-                @SerializedName("translated")
-                protected String translatedName;
+        while ((inputLine = in.readLine()) != null) {
+            content.append(inputLine);
         }
+
+        in.close();
+        connection.disconnect();
+
+        return content.toString();
+    }
 }
+
 ```
 
 ⚙️ **Rust**
@@ -97,29 +108,34 @@ public class EnchantmentsMap {
     - Biblioteca reqwest/tokio
     - Rust nightly ou outro
 ```rust
-#[derive(Debug, Serialize, Deserialize)]
-struct EnchantmentMap {
-    pub enchantments: HashMap<String, Enchantment>,
+use std::collections::HashMap;
+use reqwest::Error;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct EnchantExtra {
+    conflicts: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Enchantment {
-    pub translated: String,
-    pub reference: String,
-    pub id: i32,
+#[derive(Debug, Deserialize)]
+struct Enchant {
+    id: u32,
+    name: String,
+    extra: EnchantExtra,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resp = reqwest::get("https://raw.githubusercontent.com/RedeCanary/redecanary-requests/refs/heads/main/enchants.json")
-        .await?
-        .json::<EnchantmentMap>()
-        .await?;
+async fn main() -> Result<(), Error> {
+    let url = "https://raw.githubusercontent.com/RedeCanary/Canary-Requests/refs/heads/main/skyblock/enchants.json";
 
-    if let Some(enchant) = resp.enchantments.get("CRITICAL") {
-        println!("Nome: {}", enchant.translated);
-        println!("Referência: {}", enchant.reference);
-        println!("Id: {}", enchant.id);
+    let response = reqwest::get(url).await?;
+    let data: HashMap<String, Enchant> = response.json().await?;
+
+    for (enchant_name, enchant) in data {
+        println!(
+            "ID: {}\nNome: {}\nConflitos: {:?}\n",
+            enchant.id, enchant.name, enchant.extra.conflicts
+        );
     }
 
     Ok(())
