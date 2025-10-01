@@ -1890,8 +1890,7 @@
       },
       "targets": [
         "PICKAXE",
-        "SWORD",
-        "BOW"
+        "SWORD"
       ],
       "conflicts": [],
       "replaces": []
